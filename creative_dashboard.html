@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speed Wallet — Creative Performance Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#0a0c11;
+    --surface:rgba(255,255,255,0.026);
+    --surface-2:rgba(255,255,255,0.05);
+    --hairline:rgba(255,255,255,0.09);
+    --hairline-strong:rgba(255,255,255,0.15);
+    --text:#edf1f7; --muted:#9aa4b2; --faint:#6b7585;
+    --accent:#6e40c9; --accent-2:#a371f7;
+    --good:#3fb950; --good-2:#56d364; --warn:#e3b341;
+    --bad:#f85149; --bad-2:#ff7b72;
+    --grad:linear-gradient(120deg,#6e40c9,#a371f7);
+    --shadow:0 10px 30px -14px rgba(0,0,0,0.65);
+    --shadow-lift:0 18px 44px -16px rgba(0,0,0,0.75);
+    --r-lg:16px; --r-md:12px; --r-sm:9px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; color:var(--text); min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; -webkit-font-smoothing:antialiased; letter-spacing:-0.005em;
+    background:
+      radial-gradient(1100px 600px at 50% -8%, rgba(110,64,201,0.22), transparent 58%),
+      radial-gradient(820px 520px at 100% 2%, rgba(163,113,245,0.10), transparent 52%),
+      radial-gradient(720px 480px at 0% 10%, rgba(63,185,80,0.05), transparent 50%),
+      var(--bg);
+    background-attachment:fixed;
+  }
+  body::before{ /* film grain */
+    content:""; position:fixed; inset:0; z-index:0; pointer-events:none; opacity:0.035;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .wrap{position:relative; z-index:1; max-width:1180px; margin:0 auto; padding:0 24px 80px;}
+
+  /* Brand bar */
+  .brandbar{display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; padding:20px 0; border-bottom:1px solid var(--hairline);}
+  .brand{font-weight:750; font-size:16px; letter-spacing:-0.02em; display:flex; align-items:center;}
+  .brand .bolt{
+    margin-right:8px; font-size:17px;
+    background:linear-gradient(180deg,#ffd66e,#f0a02a); -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent; filter:drop-shadow(0 0 6px rgba(240,160,42,0.45));
+  }
+  .brandbar .sync{font-size:12px; color:var(--muted);}
+  .brandbar .sync b{color:var(--text); font-weight:600;}
+
+  /* Title */
+  .title-block{margin:32px 0 24px;}
+  h1{
+    font-size:27px; margin:0 0 5px; font-weight:760; letter-spacing:-0.03em;
+    background:linear-gradient(180deg,#ffffff,#c9c3e8); -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+  }
+  .title-block .sub{color:var(--muted); font-size:13px;}
+
+  /* KPI cards */
+  .kpi-grid{display:grid; grid-template-columns:repeat(4,1fr); gap:16px;}
+  @media(max-width:880px){.kpi-grid{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:480px){.kpi-grid{grid-template-columns:1fr;}}
+  .kpi{
+    position:relative; overflow:hidden; padding:20px;
+    background:linear-gradient(180deg,var(--surface),rgba(255,255,255,0.008));
+    border:1px solid var(--hairline); border-radius:var(--r-lg);
+    box-shadow:var(--shadow); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+    animation:rise .5s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .kpi::before{content:""; position:absolute; inset:0 0 auto 0; height:2px; background:var(--grad); opacity:.85;}
+  .kpi:has(.val.good)::before{background:linear-gradient(90deg,var(--good),var(--good-2));}
+  .kpi:has(.val.bad)::before{background:linear-gradient(90deg,var(--bad),var(--bad-2));}
+  .kpi:hover{transform:translateY(-3px); border-color:var(--hairline-strong); box-shadow:var(--shadow-lift);}
+  .kpi.flag{border-color:rgba(248,81,73,0.42); box-shadow:0 0 0 1px rgba(248,81,73,0.12), var(--shadow);}
+  .kpi .val{font-size:clamp(28px,3.4vw,34px); font-weight:760; letter-spacing:-0.03em; line-height:1.04; font-variant-numeric:tabular-nums;}
+  .kpi .val:not(.good):not(.bad){background:linear-gradient(180deg,#ffffff,#cfd6e4); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;}
+  .kpi .val.good{color:var(--good);} .kpi .val.bad{color:var(--bad);}
+  .kpi .lab{font-size:10.5px; text-transform:uppercase; letter-spacing:0.09em; color:var(--faint); margin-top:10px; font-weight:700;}
+  .kpi .sub{font-size:12px; color:var(--muted); margin-top:7px;}
+
+  section{margin:52px 0; animation:rise .55s cubic-bezier(.2,.7,.2,1) both;}
+  .sec-head{display:flex; align-items:center; gap:11px; margin-bottom:18px;}
+  h2{font-size:12.5px; text-transform:uppercase; letter-spacing:0.11em; color:var(--muted); margin:0; font-weight:700; display:flex; align-items:center; gap:10px;}
+  h2::before{content:""; width:3px; height:13px; border-radius:2px; background:var(--grad);}
+  .note{font-size:12px; color:var(--faint);}
+  .panel{
+    background:linear-gradient(180deg,var(--surface),rgba(255,255,255,0.006));
+    border:1px solid var(--hairline); border-radius:var(--r-lg); padding:22px;
+    box-shadow:var(--shadow); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  }
+  .grid-2{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+  @media(max-width:880px){.grid-2{grid-template-columns:1fr;}}
+
+  /* Channel table */
+  .table-wrap{overflow-x:auto;}
+  table{width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; min-width:520px;}
+  th,td{text-align:right; padding:8px 12px; border-bottom:1px solid var(--hairline); font-size:13px;}
+  th{color:var(--faint); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:0.07em;}
+  th:first-child,td:first-child{text-align:left;}
+  tbody tr{transition:background .15s ease;}
+  tbody tr:hover{background:rgba(255,255,255,0.03);}
+  tbody tr:last-child td{border-bottom:none;}
+  tbody tr.eff{background:linear-gradient(90deg,rgba(63,185,80,0.10),transparent 75%); box-shadow:inset 3px 0 0 var(--good);}
+  td.ch{font-weight:600;}
+  .badge{display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; margin-left:8px; vertical-align:middle; letter-spacing:0.03em;}
+  .badge.good{background:rgba(63,185,80,0.16); color:var(--good);}
+  .badge.bad{background:rgba(248,81,73,0.16); color:var(--bad);}
+  .num-good{color:var(--good); font-weight:650;}
+  .num-bad{color:var(--bad); font-weight:650;}
+  .muted{color:var(--muted);}
+  .chart-box{position:relative; height:340px;}
+
+  /* Insight cards */
+  .ins-grid{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:880px){.ins-grid{grid-template-columns:1fr;}}
+  .ins-card{
+    display:flex; gap:13px; padding:17px 18px;
+    background:linear-gradient(180deg,var(--surface),rgba(255,255,255,0.006));
+    border:1px solid var(--hairline); border-radius:var(--r-md);
+    box-shadow:var(--shadow); transition:transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+    animation:rise .5s cubic-bezier(.2,.7,.2,1) both;
+  }
+  .ins-card:hover{transform:translateY(-2px); border-color:var(--hairline-strong); box-shadow:var(--shadow-lift);}
+  .ins-card.critical{border-color:rgba(248,81,73,0.5); background:linear-gradient(120deg,rgba(248,81,73,0.10),rgba(255,255,255,0.006) 70%); box-shadow:0 0 0 1px rgba(248,81,73,0.14), var(--shadow);}
+  .ins-ico{flex:0 0 auto; width:30px; height:30px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700;}
+  .ins-positive{color:var(--good); background:rgba(63,185,80,0.15);}
+  .ins-warning{color:var(--warn); background:rgba(227,179,65,0.15);}
+  .ins-neutral{color:var(--accent-2); background:rgba(110,64,201,0.18);}
+  .ins-card.critical .ins-ico{color:#fff; background:linear-gradient(180deg,var(--bad-2),var(--bad));}
+  .ins-head{font-size:14.5px; font-weight:680; letter-spacing:-0.01em; margin-bottom:4px;}
+  .ins-detail{font-size:12.5px; color:var(--muted); line-height:1.5;}
+  .src{font-size:11px; color:var(--faint); margin-top:16px; text-align:right;}
+
+  /* Meta empty state */
+  .empty{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:52px 20px; text-align:center; border:1px dashed var(--hairline-strong); border-radius:var(--r-lg);
+    background:radial-gradient(420px 200px at 50% 0%, rgba(110,64,201,0.10), transparent 70%);
+  }
+  .empty .ico{color:var(--accent-2); margin-bottom:14px; opacity:0.85;}
+  .empty .msg{color:var(--muted); font-size:14px; max-width:440px;}
+
+  .fallback{color:var(--warn); font-size:13px; padding:20px; text-align:center;}
+  footer{margin-top:52px; padding-top:18px; border-top:1px solid var(--hairline); font-size:11.5px; color:var(--faint);}
+  code{background:var(--surface-2); padding:1px 6px; border-radius:5px; font-size:12px; color:var(--accent-2);}
+
+  /* Motion */
+  @keyframes rise{from{opacity:0; transform:translateY(12px);} to{opacity:1; transform:none;}}
+  .kpi:nth-child(1){animation-delay:.05s} .kpi:nth-child(2){animation-delay:.11s}
+  .kpi:nth-child(3){animation-delay:.17s} .kpi:nth-child(4){animation-delay:.23s}
+  .ins-card:nth-child(2){animation-delay:.06s} .ins-card:nth-child(3){animation-delay:.12s}
+  .ins-card:nth-child(4){animation-delay:.18s} .ins-card:nth-child(5){animation-delay:.24s}
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="brandbar">
+    <div class="brand"><span class="bolt">⚡</span>Speed Wallet</div>
+    <div class="sync">Synced: <b id="syncTime">—</b></div>
+  </div>
+
+  <div class="title-block">
+    <h1>Creative Performance Dashboard</h1>
+    <div class="sub">User acquisition &amp; retention · last 30 days</div>
+  </div>
+
+  <!-- KPI summary row -->
+  <div class="kpi-grid" id="kpis"></div>
+
+  <!-- 1. Channel Performance -->
+  <section>
+    <div class="sec-head"><h2>Channel Performance</h2><span class="note" id="chNote"></span></div>
+    <div class="panel"><div class="table-wrap"><table id="chTable">
+      <thead><tr><th>Channel</th><th>Installs</th><th>eCPI</th><th>Impressions</th><th>Clicks</th></tr></thead>
+      <tbody></tbody>
+    </table></div></div>
+  </section>
+
+  <div class="grid-2">
+    <!-- 2. Campaign Breakdown -->
+    <section>
+      <div class="sec-head"><h2>Campaign Breakdown</h2><span class="note" id="cmpNote"></span></div>
+      <div class="panel"><div class="chart-box"><canvas id="cmpChart"></canvas></div></div>
+    </section>
+
+    <!-- 3. Retention Curve -->
+    <section>
+      <div class="sec-head"><h2>Retention Curve</h2><span class="note" id="retNote"></span></div>
+      <div class="panel"><div class="chart-box"><canvas id="retChart"></canvas></div></div>
+    </section>
+  </div>
+
+  <!-- 4. Meta Campaign Performance -->
+  <section>
+    <div class="sec-head"><h2>Meta Campaign Performance</h2><span class="note" id="metaNote"></span></div>
+    <div class="panel"><div class="table-wrap"><table id="metaTable">
+      <thead><tr><th>Campaign</th><th>Spend</th><th>Impressions</th><th>Clicks</th><th>App Installs</th><th>Creative Score</th></tr></thead>
+      <tbody></tbody>
+    </table></div></div>
+  </section>
+
+  <!-- 5. Key Insights -->
+  <section>
+    <div class="sec-head"><h2>Key Insights</h2></div>
+    <div class="ins-grid" id="insights"></div>
+    <div class="src" id="insightsSrc"></div>
+  </section>
+
+  <!-- 6. Meta Creative Analysis placeholder -->
+  <section>
+    <div class="sec-head"><h2>Meta Creative Analysis</h2></div>
+    <div class="empty">
+      <svg class="ico" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <line x1="3" y1="20.5" x2="21" y2="20.5"/>
+        <rect x="4.5" y="11" width="3.6" height="9.5"/>
+        <rect x="10.2" y="6" width="3.6" height="14.5"/>
+        <rect x="15.9" y="14" width="3.6" height="6.5"/>
+      </svg>
+      <div class="msg">Campaign-level Meta data is now live above. Creative-level (ad &amp; asset) breakdown is pending and will populate once wired in.</div>
+    </div>
+  </section>
+
+  <footer>
+    Data pulled live from Google Sheets at build time and inlined into this file.
+    Charts via Chart.js (cdnjs). Insights by <code id="modelName">—</code>.
+    Built <span id="builtAt">—</span>.
+  </footer>
+</div>
+
+<script>
+const DATA = {"generated_at": "2026-06-24 20:48:24 UTC", "last_updated": "2026-06-24 20:31:14 UTC", "kpis": {"total_installs": 41223, "channel_count": 16, "best_paid": {"channel": "Facebook", "installs": 1746, "impressions": 200768, "clicks": 11827, "ecpi": 3.871}, "d1_retention": 0.2592, "d1_above": true, "d1_target": 0.25, "matured_cohorts": 28, "reengagement": {"channel": "Re-engagement campaigns", "clicks": 102743, "installs": 119, "cvr": 0.116}}, "channels": [{"channel": "Organic", "installs": 27542, "impressions": 0, "clicks": 0, "ecpi": 0.0}, {"channel": "Google Ads", "installs": 5626, "impressions": 1092974, "clicks": 14525, "ecpi": 4.9998}, {"channel": "Apple", "installs": 2290, "impressions": 57582, "clicks": 4581, "ecpi": 3.9101}, {"channel": "Facebook", "installs": 1746, "impressions": 200768, "clicks": 11827, "ecpi": 3.871}, {"channel": "Website", "installs": 1592, "impressions": 0, "clicks": 13905, "ecpi": 0.0}, {"channel": "Partnership", "installs": 1044, "impressions": 0, "clicks": 7973, "ecpi": 0.0}, {"channel": "Google Organic Search", "installs": 1016, "impressions": 0, "clicks": 0, "ecpi": 0.0}, {"channel": "Re-engagement campaigns", "installs": 119, "impressions": 0, "clicks": 102743, "ecpi": 0.0}, {"channel": "Social Media", "installs": 104, "impressions": 0, "clicks": 18596, "ecpi": 0.0}, {"channel": "Telegram Ads", "installs": 36, "impressions": 0, "clicks": 465, "ecpi": 0.0}, {"channel": "Las Vegas Billboard", "installs": 32, "impressions": 0, "clicks": 339, "ecpi": 0.0}, {"channel": "Meta Retargeting Campaign", "installs": 30, "impressions": 0, "clicks": 1012, "ecpi": 0.0}, {"channel": "Untrusted Devices", "installs": 27, "impressions": 0, "clicks": 0, "ecpi": 0.0}, {"channel": "MiniBet", "installs": 16, "impressions": 0, "clicks": 797, "ecpi": 0.0}, {"channel": "Meta Video Ads", "installs": 2, "impressions": 0, "clicks": 4591, "ecpi": 0.0}, {"channel": "Flipit New", "installs": 1, "impressions": 0, "clicks": 29, "ecpi": 0.0}], "total_installs": 41223, "most_efficient": "Facebook", "most_efficient_detail": {"channel": "Facebook", "installs": 1746, "impressions": 200768, "clicks": 11827, "ecpi": 3.871}, "facebook_flag": {"facebook_ecpi": 3.871, "apple_ecpi": 3.9101, "flagged": false}, "min_meaningful_installs": 100, "reengagement": {"channel": "Re-engagement campaigns", "clicks": 102743, "installs": 119, "cvr": 0.116}, "campaigns": [{"campaign": "New - Android Brand US", "channel": "Google Ads", "installs": 3492, "cost": 17882.32}, {"campaign": "XAUT offers", "channel": "Google Ads", "installs": 1887, "cost": 9286.12}, {"campaign": "Payday - Android - Broad+", "channel": "Facebook", "installs": 1589, "cost": 5514.5}, {"campaign": "US - Brand - Exact", "channel": "Apple", "installs": 1306, "cost": 4322.52}, {"campaign": "Home>banner>android", "channel": "Website", "installs": 910, "cost": 0.0}, {"campaign": "US - Max Conversion Campaign", "channel": "Apple", "installs": 692, "cost": 3316.85}, {"campaign": "Thndr", "channel": "Partnership", "installs": 520, "cost": 0.0}, {"campaign": "Fumb", "channel": "Partnership", "installs": 368, "cost": 0.0}, {"campaign": "Home>banner>iOS", "channel": "Website", "installs": 341, "cost": 0.0}, {"campaign": "speed wallet", "channel": "Google Organic Search", "installs": 312, "cost": 0.0}], "excluded_organic_rows": 4, "retention": {"labels": ["D1", "D2", "D3", "D4", "D5", "D6", "D7"], "values": [0.2592, 0.2112, 0.1826, 0.1684, 0.1614, 0.1457, 0.1352], "cohort_count": 28, "excluded_days": ["2026-06-22", "2026-06-23"]}, "meta": {"campaigns": [{"campaign": "Payday - Android - Broad+", "spend": 5709.66, "impressions": 130047, "clicks": 10510, "installs": 1649, "creative_score": 100.0}, {"campaign": "iOS - App Promotion Campaign", "spend": 1379.75, "impressions": 61492, "clicks": 1895, "installs": 199, "creative_score": 69.7}, {"campaign": "Cash Deposit", "spend": 645.02, "impressions": 95967, "clicks": 2279, "installs": 12, "creative_score": 5.7}, {"campaign": "Re-targeting Campaign Andoid & iOS", "spend": 217.74, "impressions": 22257, "clicks": 504, "installs": 16, "creative_score": 46.5}, {"campaign": "Re-engagement - Android", "spend": 144.42, "impressions": 25928, "clicks": 180, "installs": 6, "creative_score": 32.1}], "totals": {"spend": 8096.59, "impressions": 335691, "clicks": 15368, "installs": 1882}}, "insights": [{"type": "positive", "headline": "Organic Dominates at Zero Acquisition Cost", "detail": "Organic installs account for 27,502 of the 40,760 total installs (67.5%), dwarfing every paid channel combined and delivering a $0.00 eCPI versus the next-largest paid channel Google Ads at $5.11."}, {"type": "warning", "headline": "Re-Engagement Burns Clicks, Delivers Nothing", "detail": "Re-engagement campaigns generated 90,949 clicks but converted only 112 installs \u2014 a 0.12% CVR \u2014 making it the highest-click, lowest-output channel in the entire mix and signaling a critical funnel breakdown that demands immediate audit."}, {"type": "warning", "headline": "Meta 'Cash Deposit' Campaign Is Nearly Dead", "detail": "The Meta 'Cash Deposit' campaign spent $645.02 to deliver just 12 installs (an implied $53.75 CPI), while 'Re-targeting Campaign Android & iOS' spent $217.74 for only 16 installs ($13.61 CPI) \u2014 both dramatically underperforming the Meta flagship 'Payday - Android - Broad+' which drove 1,649 installs on $5,709.66 ($3.46 CPI)."}, {"type": "neutral", "headline": "D1-to-D7 Retention Drop Signals Activation Gap", "detail": "Across 28 matured cohorts, retention falls from 25.9% on D1 to 13.3% on D7 \u2014 a 48.7% relative decline in one week \u2014 suggesting that users who install are not finding a compelling reason to return within the critical first week."}, {"type": "positive", "headline": "Apple Search Ads Edges Out Facebook on Efficiency", "detail": "Apple Search Ads delivers installs at an eCPI of $3.91 versus Facebook's $4.09, and the top Apple campaign 'US - Brand - Exact' drove 1,250 installs at $4,230.46 ($3.38 CPI), making Apple the most cost-efficient paid channel for scaling spend."}], "insights_critical_index": 1, "insights_source": "claude-sonnet-4-6 (cached)"};
+
+const intFmt = new Intl.NumberFormat("en-US");
+const fmtInt = n => intFmt.format(Math.round(n||0));
+const fmtEcpi = v => (v && v > 0) ? "$" + Number(v).toFixed(2) : "—";
+const fmtCost = v => (v && v > 0) ? "$" + intFmt.format(Math.round(v)) : "—";
+const usdFmt = new Intl.NumberFormat("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+const fmtMoney = v => (v || v === 0) ? "$" + usdFmt.format(Number(v)) : "—";
+const esc = s => { const d=document.createElement("div"); d.textContent = (s==null?"":s); return d.innerHTML; };
+
+function kpiCard(val, valCls, lab, sub, cardCls, count){
+  const data = count
+    ? ` data-count="${count.target}" data-prefix="${count.prefix||""}" data-suffix="${count.suffix||""}" data-decimals="${count.decimals||0}"`
+    : "";
+  return `<div class="kpi ${cardCls||""}">
+    <div class="val ${valCls||""}"${data}>${val}</div>
+    <div class="lab">${lab}</div>
+    <div class="sub">${sub}</div>
+  </div>`;
+}
+
+// Animated count-up for KPI numbers (eased), respecting reduced-motion.
+function animateVal(el){
+  const target = parseFloat(el.dataset.count);
+  if (isNaN(target)) return;
+  const dec = parseInt(el.dataset.decimals||"0", 10);
+  const pre = el.dataset.prefix||"", suf = el.dataset.suffix||"";
+  const fmt = v => pre + (dec>0 ? v.toFixed(dec) : intFmt.format(Math.round(v))) + suf;
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches){ el.textContent = fmt(target); return; }
+  const dur = 950, t0 = performance.now();
+  el.textContent = fmt(0);
+  requestAnimationFrame(function step(now){
+    const p = Math.min(1, (now-t0)/dur), e = 1 - Math.pow(1-p, 3);
+    el.textContent = fmt(target * e);
+    if (p < 1) requestAnimationFrame(step); else el.textContent = fmt(target);
+  });
+}
+
+function renderKPIs(){
+  const k = DATA.kpis, g = document.getElementById("kpis");
+  const cards = [];
+  cards.push(kpiCard(fmtInt(k.total_installs), "", "Total Installs",
+    `Last 30 days · ${k.channel_count} active channels`, "",
+    {target:k.total_installs, decimals:0}));
+
+  if (k.best_paid)
+    cards.push(kpiCard("$" + k.best_paid.ecpi.toFixed(2), "good", "Best Paid eCPI",
+      `${esc(k.best_paid.channel)} · ${fmtInt(k.best_paid.installs)} installs`, "",
+      {target:k.best_paid.ecpi, prefix:"$", decimals:2}));
+  else
+    cards.push(kpiCard("—", "", "Best Paid eCPI", "no paid channels", ""));
+
+  const above = k.d1_above;
+  cards.push(kpiCard((k.d1_retention*100).toFixed(1) + "%", above ? "good" : "bad",
+    "D1 Retention",
+    `${above ? "▲" : "▼"} ${above ? "above" : "below"} ${Math.round(k.d1_target*100)}% target · ${k.matured_cohorts} cohorts`,
+    "", {target:k.d1_retention*100, suffix:"%", decimals:1}));
+
+  if (k.reengagement)
+    cards.push(kpiCard(k.reengagement.cvr.toFixed(2) + "%", "bad", "Re-engagement CVR",
+      `⚠ ${fmtInt(k.reengagement.clicks)} clicks → ${fmtInt(k.reengagement.installs)} installs`, "flag",
+      {target:k.reengagement.cvr, suffix:"%", decimals:2}));
+  else
+    cards.push(kpiCard("—", "", "Re-engagement CVR", "no re-engagement channel", ""));
+
+  g.innerHTML = cards.join("");
+  g.querySelectorAll(".val[data-count]").forEach(animateVal);
+}
+
+function renderChannels(){
+  const tb = document.querySelector("#chTable tbody");
+  const eff = DATA.most_efficient;
+  const fb = DATA.facebook_flag;
+  DATA.channels.forEach(c => {
+    const tr = document.createElement("tr");
+    if (c.channel === eff) tr.className = "eff";
+    let badge = "";
+    if (c.channel === eff) badge = '<span class="badge good">★ Most efficient</span>';
+    if (fb && fb.flagged && c.channel.toLowerCase() === "facebook")
+      badge += '<span class="badge bad">⚠ eCPI above Apple</span>';
+    const ecpiCls = (c.channel === eff) ? "num-good"
+      : ((fb && fb.flagged && c.channel.toLowerCase()==="facebook") ? "num-bad" : "");
+    tr.innerHTML =
+      `<td class="ch">${esc(c.channel)}${badge}</td>` +
+      `<td>${fmtInt(c.installs)}</td>` +
+      `<td class="${ecpiCls}">${fmtEcpi(c.ecpi)}</td>` +
+      `<td class="muted">${fmtInt(c.impressions)}</td>` +
+      `<td class="muted">${fmtInt(c.clicks)}</td>`;
+    tb.appendChild(tr);
+  });
+  const parts = [];
+  if (DATA.most_efficient_detail)
+    parts.push(`Most efficient: ${eff} ($${DATA.most_efficient_detail.ecpi.toFixed(2)} eCPI)`);
+  if (fb && fb.flagged)
+    parts.push(`Facebook $${fb.facebook_ecpi.toFixed(2)} > Apple $${fb.apple_ecpi.toFixed(2)}`);
+  parts.push(`${DATA.channels.length} channels with installs`);
+  document.getElementById("chNote").textContent = parts.join("  ·  ");
+}
+
+function renderCampaigns(){
+  document.getElementById("cmpNote").textContent =
+    `Top ${DATA.campaigns.length} by installs (excl. ${DATA.excluded_organic_rows} unattributed Organic)`;
+  if (typeof Chart === "undefined"){ chartFallback("cmpChart"); return; }
+  const trunc = s => s.length > 25 ? s.slice(0, 25) + "..." : s;
+  const labels = DATA.campaigns.map(c => trunc(c.campaign));
+  const installs = DATA.campaigns.map(c => c.installs);
+  const ctx = document.getElementById("cmpChart").getContext("2d");
+  const grad = ctx.createLinearGradient(0, 0, 560, 0);
+  grad.addColorStop(0, "#6e40c9"); grad.addColorStop(1, "#a371f7");
+  new Chart(ctx, {
+    type:"bar",
+    data:{labels, datasets:[{
+      label:"Installs", data:installs,
+      backgroundColor:grad, borderRadius:4, maxBarThickness:24,
+    }]},
+    options:{
+      indexAxis:"y", responsive:true, maintainAspectRatio:false,
+      layout:{padding:{left:10, right:16, top:4, bottom:4}},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:"rgba(14,16,24,0.96)", borderColor:"rgba(255,255,255,0.10)", borderWidth:1,
+          cornerRadius:9, padding:11, titleColor:"#edf1f7", bodyColor:"#9aa4b2", displayColors:false,
+          callbacks:{
+            title:(items)=> DATA.campaigns[items[0].dataIndex].campaign,
+            afterLabel:(c)=>{
+              const x = DATA.campaigns[c.dataIndex];
+              return `Channel: ${x.channel}\nCost: ${fmtCost(x.cost)}`;
+            },
+          }},
+      },
+      scales:{
+        x:{ticks:{color:"#8b949e"}, grid:{color:"rgba(255,255,255,0.06)"}},
+        y:{ticks:{color:"#e6edf3", font:{size:11}, autoSkip:false}, grid:{display:false}},
+      },
+    },
+  });
+}
+
+function renderRetention(){
+  const r = DATA.retention;
+  document.getElementById("retNote").textContent =
+    `Avg of ${r.cohort_count} matured cohorts (excl. ${r.excluded_days.length} most-recent days)`;
+  if (typeof Chart === "undefined"){ chartFallback("retChart"); return; }
+  const rctx = document.getElementById("retChart").getContext("2d");
+  const fill = rctx.createLinearGradient(0, 0, 0, 340);
+  fill.addColorStop(0, "rgba(163,113,245,0.42)");
+  fill.addColorStop(1, "rgba(110,64,201,0.02)");
+  new Chart(rctx, {
+    type:"line",
+    data:{labels:r.labels, datasets:[{
+      label:"Retention", data:r.values.map(v=>+(v*100).toFixed(2)),
+      borderColor:"#a371f7", backgroundColor:fill, borderWidth:2.5,
+      fill:true, tension:0.35,
+      pointRadius:4, pointHoverRadius:6, pointBackgroundColor:"#a371f7",
+      pointBorderColor:"#0a0c11", pointBorderWidth:2,
+    }]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          backgroundColor:"rgba(14,16,24,0.96)", borderColor:"rgba(255,255,255,0.10)", borderWidth:1,
+          cornerRadius:9, padding:11, titleColor:"#edf1f7", bodyColor:"#9aa4b2", displayColors:false,
+          callbacks:{label:(c)=>` ${c.parsed.y.toFixed(1)}% retained`}},
+      },
+      scales:{
+        x:{ticks:{color:"#e6edf3"}, grid:{color:"rgba(255,255,255,0.06)"}},
+        y:{ticks:{color:"#8b949e", callback:v=>v+"%"}, grid:{color:"rgba(255,255,255,0.06)"}, beginAtZero:true},
+      },
+    },
+  });
+}
+
+function renderMeta(){
+  const m = DATA.meta;
+  const tb = document.querySelector("#metaTable tbody");
+  if (!m || !m.campaigns || !m.campaigns.length){
+    document.getElementById("metaNote").textContent = "No active Meta campaigns this period";
+    tb.innerHTML = `<tr><td colspan="6" class="muted">No Meta campaign data for this period.</td></tr>`;
+    return;
+  }
+  m.campaigns.forEach(c => {
+    const tr = document.createElement("tr");
+    const score = (c.creative_score == null) ? "—" : c.creative_score.toFixed(1);
+    tr.innerHTML =
+      `<td class="ch">${esc(c.campaign)}</td>` +
+      `<td>${fmtMoney(c.spend)}</td>` +
+      `<td class="muted">${fmtInt(c.impressions)}</td>` +
+      `<td class="muted">${fmtInt(c.clicks)}</td>` +
+      `<td class="num-good">${fmtInt(c.installs)}</td>` +
+      `<td>${score}</td>`;
+    tb.appendChild(tr);
+  });
+  const t = m.totals;
+  document.getElementById("metaNote").textContent =
+    `${m.campaigns.length} active campaigns  ·  ${fmtMoney(t.spend)} spend  ·  ${fmtInt(t.installs)} installs`;
+}
+
+function renderInsights(){
+  const g = document.getElementById("insights");
+  const ICON = {positive:"▲", warning:"⚠", neutral:"●"};
+  if (!DATA.insights || !DATA.insights.length){
+    g.innerHTML = '<div class="ins-card"><div class="ins-detail">Insights unavailable for this build.</div></div>';
+  } else {
+    g.innerHTML = DATA.insights.map((c, i) => {
+      const crit = (i === DATA.insights_critical_index) ? "critical" : "";
+      const head = c.headline || c.detail;
+      const detail = c.headline ? c.detail : "";
+      return `<div class="ins-card ${crit}">
+        <div class="ins-ico ins-${c.type}">${ICON[c.type] || "●"}</div>
+        <div>
+          <div class="ins-head">${esc(head)}</div>
+          ${detail ? `<div class="ins-detail">${esc(detail)}</div>` : ""}
+        </div>
+      </div>`;
+    }).join("");
+  }
+  document.getElementById("insightsSrc").textContent = "Generated by " + DATA.insights_source;
+  document.getElementById("modelName").textContent = DATA.insights_source;
+}
+
+function chartFallback(id){
+  const cv = document.getElementById(id);
+  const d = document.createElement("div");
+  d.className = "fallback";
+  d.textContent = "Chart.js failed to load (offline?). Data is present; reconnect to render charts.";
+  cv.replaceWith(d);
+}
+
+function init(){
+  try{
+    document.getElementById("syncTime").textContent = DATA.last_updated || "—";
+    document.getElementById("builtAt").textContent = DATA.generated_at || "—";
+    renderKPIs();
+    renderChannels();
+    renderCampaigns();
+    renderRetention();
+    renderMeta();
+    renderInsights();
+    console.log("Dashboard rendered OK:",
+      DATA.channels.length, "channels,",
+      DATA.campaigns.length, "campaigns,",
+      DATA.retention.cohort_count, "retention cohorts,",
+      (DATA.insights||[]).length, "insights");
+  }catch(e){
+    console.error("Dashboard render error:", e);
+  }
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
